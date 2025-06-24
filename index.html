@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Perceptual Gap |知觉裂隙</title>
+<style>
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f7fa;
+    color: #222;
+    margin: 0; padding: 0;
+    max-width: 900px;
+    margin-left: auto; margin-right: auto;
+  }
+  header {
+    background: #004a99;
+    color: white;
+    padding: 1rem;
+    text-align: center;
+  }
+  main {
+    padding: 1rem 1.5rem;
+  }
+  input[type=file] {
+    margin: 1rem 0;
+  }
+  img#preview {
+    max-width: 100%;
+    max-height: 320px;
+    border-radius: 6px;
+    box-shadow: 0 0 8px rgba(0,0,0,0.1);
+  }
+  label {
+    font-weight: 600;
+    display: block;
+    margin-top: 1rem;
+  }
+  textarea, input[type=text] {
+    width: 100%;
+    padding: 0.6rem;
+    font-size: 1rem;
+    margin-top: 0.3rem;
+    border-radius: 4px;
+    border: 1px solid #bbb;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  button {
+    margin-top: 1rem;
+    background: #0078d4;
+    border: none;
+    color: white;
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:disabled {
+    background: #999;
+    cursor: not-allowed;
+  }
+  section#interpretations {
+    margin-top: 2rem;
+  }
+  .interpretation {
+    background: white;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 6px;
+    box-shadow: 0 1px 5px rgb(0 0 0 / 0.1);
+  }
+  .logic-structure {
+    font-family: monospace;
+    background: #eef4ff;
+    padding: 0.5rem 0.8rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    white-space: pre-wrap;
+  }
+  small {
+    color: #666;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Perceptual Gap <small>知觉裂隙</small></h1>
+  <p>Building tension of perspectives through photography and logic</p>
+</header>
+
+<main>
+  <label for="photoUpload">Upload Photo (Local Preview):</label>
+  <input type="file" id="photoUpload" accept="image/*" />
+
+  <img id="preview" alt="Photo Preview" style="display:none" />
+
+  <form id="interpretationForm">
+    <label for="interpretationText">Your Interpretation of the Photo:</label>
+    <textarea id="interpretationText" rows="3" placeholder="Write your observation and interpretation of this photo..."></textarea>
+
+    <label for="logicPremises">Logical Structure (One premise per line, last line is conclusion):</label>
+    <textarea id="logicPremises" rows="5" placeholder="Example:&#10;Premise 1: The city population is aging&#10;Premise 2: Most people on the bench are elderly&#10;Conclusion: Public spaces are shifting toward elderly needs"></textarea>
+
+    <button type="submit" disabled>Add Interpretation</button>
+  </form>
+
+  <section id="interpretations">
+    <h2>Existing Interpretations and Counter-Interpretations</h2>
+    <div id="interpretationList">
+      <p>No interpretations yet, be the first to add your view!</p>
+    </div>
+  </section>
+</main>
+
+<script>
+  const photoUpload = document.getElementById('photoUpload');
+  const preview = document.getElementById('preview');
+  const interpretationText = document.getElementById('interpretationText');
+  const logicPremises = document.getElementById('logicPremises');
+  const addBtn = document.querySelector('button[type=submit]');
+  const interpretationList = document.getElementById('interpretationList');
+  const form = document.getElementById('interpretationForm');
+
+  // State: photo base64, all interpretations
+  let photoDataUrl = null;
+  let interpretations = [];
+
+  // Enable/disable submit button
+  function checkCanSubmit() {
+    addBtn.disabled = !(
+      photoDataUrl &&
+      interpretationText.value.trim().length > 5 &&
+      logicPremises.value.trim().length > 5
+    );
+  }
+
+  photoUpload.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      photoDataUrl = event.target.result;
+      preview.src = photoDataUrl;
+      preview.style.display = 'block';
+      checkCanSubmit();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  interpretationText.addEventListener('input', checkCanSubmit);
+  logicPremises.addEventListener('input', checkCanSubmit);
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    if (!photoDataUrl) {
+      alert('Please upload a photo first.');
+      return;
+    }
+    const text = interpretationText.value.trim();
+    const logic = logicPremises.value.trim();
+
+    const newInterpretation = {
+      id: Date.now(),
+      photo: photoDataUrl,
+      text,
+      logic,
+      replies: []
+    };
+
+    interpretations.push(newInterpretation);
+    saveInterpretations();
+    renderInterpretations();
+    form.reset();
+    preview.style.display = 'none';
+    photoDataUrl = null;
+    addBtn.disabled = true;
+  });
+
+  // Save to localStorage
+  function saveInterpretations() {
+    localStorage.setItem('pg_interpretations', JSON.stringify(interpretations));
+  }
+
+  // Load from localStorage
+  function loadInterpretations() {
+    const data = localStorage.getItem('pg_interpretations');
+    if (data) {
+      interpretations = JSON.parse(data);
+    }
+  }
+
+  // Render interpretations list
+  function renderInterpretations() {
+    if (interpretations.length === 0) {
+      interpretationList.innerHTML = '<p>No interpretations yet, be the first to add your view!</p>';
+      return;
+    }
+
+    interpretationList.innerHTML = '';
+    interpretations.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'interpretation';
+
+      div.innerHTML = `
+        <img src="${item.photo}" alt="Photo" style="max-width:100%;border-radius:4px;margin-bottom:0.5rem;" />
+        <p><strong>Interpretation:</strong> ${escapeHtml(item.text)}</p>
+        <div class="logic-structure">${escapeHtml(item.logic)}</div>
+        <button class="replyBtn" data-id="${item.id}">Add Counter-Interpretation / Comment</button>
+        <div class="replies" id="replies-${item.id}">
+          ${item.replies.length > 0 ? item.replies.map(r => `<p>— ${escapeHtml(r)}</p>`).join('') : '<small>No counter-interpretations yet</small>'}
+        </div>
+      `;
+      interpretationList.appendChild(div);
+    });
+
+    // Bind reply buttons
+    document.querySelectorAll('.replyBtn').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-id');
+        const reply = prompt('Enter your counter-interpretation or comment (max 200 characters):');
+        if (reply && reply.trim().length > 0 && reply.trim().length <= 200) {
+          const target = interpretations.find(i => i.id == id);
+          if (target) {
+            target.replies.push(reply.trim());
+            saveInterpretations();
+            renderInterpretations();
+          }
+        }
+      };
+    });
+  }
+
+  // Escape HTML to prevent XSS
+  function escapeHtml(text) {
+    return text.replace(/[&<>"']/g, function(m) {
+      return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[m];
+    });
+  }
+
+  // Init
+  loadInterpretations();
+  renderInterpretations();
+</script>
+</body>
+</html>
